@@ -1,29 +1,12 @@
-# Build stage
-FROM golang:1.22-alpine AS builder
-
-WORKDIR /workspace
-
-# Copy go mod files
-COPY go.mod go.mod
-COPY go.sum go.sum
-
-# Cache dependencies
-RUN go mod download
-
-# Copy source code
-COPY cmd/ cmd/
-COPY pkg/ pkg/
-
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o controller ./cmd/controller/main.go
-
-# Final stage
-FROM gcr.io/distroless/static:nonroot
+# Runtime stage only - binary is built locally
+FROM registry.access.redhat.com/ubi9/ubi-micro:latest
 
 WORKDIR /
 
-COPY --from=builder /workspace/controller .
+# Copy pre-built binary
+COPY bin/controller .
 
-USER 65532:65532
+# OpenShift uses arbitrary UIDs in the root group (GID 0)
+USER 1001:0
 
 ENTRYPOINT ["/controller"]

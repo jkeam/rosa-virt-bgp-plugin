@@ -26,7 +26,7 @@ spec:
         fsGroup: 65532
       containers:
       - name: controller
-        image: quay.io/jkeam/rosa-virt-bgp-controller:v0.1.0
+        image: quay.io/andy_krohg/rosa-virt-bgp-controller:v0.1.0
         imagePullPolicy: IfNotPresent
         args:
         - --config=/etc/controller/config.yaml

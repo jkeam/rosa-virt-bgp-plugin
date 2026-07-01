@@ -94,8 +94,8 @@ func (r *VMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	log.Info("reconciling VM with IPs", "vm", vmi.Name, "ips", ips)
 
 	// Reconcile FRRConfiguration for the namespace
-	if err := r.reconcileNamespace(ctx, vmi.Namespace); err != nil {
-		return ctrl.Result{}, err
+	if result, err := r.reconcileNamespace(ctx, vmi.Namespace); err != nil {
+		return result, err
 	}
 
 	// Update VM annotations if enabled

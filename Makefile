@@ -1,7 +1,7 @@
 # Makefile for ROSA Virt BGP Plugin
 
 # Image URL to use for building/pushing image targets
-IMG ?= quay.io/jkeam/rosa-virt-bgp-controller:v0.1.0
+IMG ?= quay.io/andy_krohg/rosa-virt-bgp-controller:v0.1.0
 
 # Go parameters
 GOCMD=go
@@ -26,10 +26,10 @@ help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
-## build: Build the controller binary
+## build: Build the controller binary for linux/amd64
 build:
 	mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/$(BINARY_NAME) -v ./cmd/controller
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BUILD_DIR)/controller -v ./cmd/controller
 
 ## clean: Clean build artifacts
 clean:
@@ -62,17 +62,20 @@ install-deps:
 	$(GOMOD) tidy
 
 ## docker-build: Build docker image
-docker-build:
-	docker build -t ${IMG} .
+docker-build: build
+	podman build --platform linux/amd64 -t ${IMG} .
+
+## vendor: Download dependencies to vendor directory
+vendor:
+	go mod vendor
 
 ## docker-push: Push docker image
 docker-push:
-	docker push ${IMG}
+	podman push ${IMG}
 
 ## deploy: Deploy all manifests to cluster
 deploy:
-	kubectl apply -f manifests/01-prerequisites/namespace.yaml
-	kubectl apply -f manifests/01-prerequisites/rbac.yaml
+	kubectl apply -f manifests/01-prerequisites/
 	kubectl apply -f manifests/02-networking/
 	kubectl apply -f manifests/03-frr/
 	kubectl apply -f manifests/04-controller/

@@ -1,275 +1,134 @@
-# ROSA Virt BGP Plugin
+# ROSA Virtualization BGP Plugin
 
-Native BGP networking for OpenShift Virtualization on ROSA - enabling direct IP reachability between on-premises VLANs and cloud-hosted VMs.
+Automatically advertise OpenShift Virtualization VM IP addresses via BGP on Red Hat OpenShift Service on AWS (ROSA).
 
-## Overview
+## The Problem
 
-This solution brings a native BGP engine directly inside your ROSA cluster using **Cluster User-Defined Networks (CUDN)** and **FRRouting (FRR)**. It creates a dedicated, flat network island for VMs and uses embedded BGP speakers to advertise VM IP addresses directly to your corporate routers.
+When migrating VMs to ROSA, they typically lose their original IP addresses and become unreachable from on-premises networks without manual configuration. Traditional solutions require:
+- **Load balancers** for each VM (expensive, limited throughput)
+- **Static routes** manually updated for each VM (operationally complex)
+- **NAT** which breaks applications expecting specific IPs (doesn't work for migrations)
 
-**The Result:** Your on-premises network can talk to cloud-hosted VMs directly by IP address, bypassing AWS load balancers completely while preserving native VM features like live migration.
+For hybrid cloud scenarios where VMs need to maintain their IP addresses and be directly routable from on-premises networks, you need dynamic routing.
 
-## Why This Solution?
+## The Solution: BGP + Kubernetes Operators
 
-Traditional hybrid cloud connectivity approaches have significant limitations:
+This plugin uses **BGP (Border Gateway Protocol)** - the same routing protocol that powers the internet - to automatically advertise VM IP addresses to your network.
 
-| Approach | Bandwidth | Routing | IP Management | Complexity |
-|----------|-----------|---------|---------------|------------|
-| **VPN (IPsec)** | 1.25 Gbps cap | Static | Manual per VM | High |
-| **AWS Load Balancer** | Limited by LB | N/A | LB IP only | Medium |
-| **This Solution** | Physical network | Dynamic BGP | Automatic IPAM | Medium |
+**Why BGP?**
+- **Dynamic**: Routes automatically added/removed as VMs are created/deleted
+- **Standard**: Works with any enterprise router (Cisco, Juniper, Arista, etc.)
+- **Scalable**: Handles thousands of routes efficiently
+- **Resilient**: Built-in failover and redundancy
 
-### Key Benefits
+**How It Works:**
 
-- ✅ **No bandwidth limits** - Only constrained by physical network capacity
-- ✅ **Dynamic routing** - BGP automatically handles topology changes
-- ✅ **Lower latency** - No IPsec encapsulation overhead  
-- ✅ **Better security** - IPAM-enabled CUDN prevents IP spoofing
-- ✅ **Production-grade HA** - BGP convergence with BFD fast failover
-- ✅ **Operational simplicity** - No per-VM manual configuration
-- ✅ **VM mobility** - Live migration preserves connectivity
+1. **FRR-K8s** (Free Range Routing) runs as a DaemonSet on your cluster nodes, providing a production-grade BGP speaker that integrates with Kubernetes via custom resources (FRRConfiguration).
+
+2. **This operator** watches for VirtualMachine objects with secondary networks (ClusterUserDefinedNetworks) and automatically creates FRRConfiguration custom resources containing `/32` routes for each VM's IP address.
+
+3. **FRR-K8s** reads these FRRConfiguration resources and advertises the routes via BGP to your on-premises routers, making the VMs instantly routable without manual intervention.
+
+**Result:** Deploy a VM with IP `192.168.100.5`, and within seconds your on-premises network knows how to reach it - no manual configuration required.
+
+## What It Does
+
+When you create VMs with secondary networks (ClusterUserDefinedNetworks), this controller:
+1. **Watches** for VirtualMachine resources in labeled namespaces
+2. **Extracts** the VM's secondary network IP address
+3. **Creates** FRRConfiguration custom resources with `/32` routes
+4. **FRR-K8s** reads these configs and advertises routes via BGP
+5. **Your network** automatically learns how to route to the VM
+
+**Use case:** Migrating VMs from on-prem while maintaining their IP addresses and network segments, or building hybrid applications that require direct IP connectivity between cloud and on-premises workloads.
+
+## Try a Demo
+
+Fully automated two-VPC demo showing real BGP route advertisement:
+
+```bash
+# 1. Install prerequisites
+./hack/install-prereqs.sh
+
+# 2. Deploy controller
+make deploy
+
+# 3. Create demo infrastructure (second VPC as "on-prem")
+AUTO_CONFIRM=true ./hack/setup-demo-vpn.sh
+
+# 4. Configure the on-prem router
+./hack/configure-onprem-router.sh
+
+# 5. Deploy test VMs
+oc apply -f manifests/05-examples/demo-vms.yaml
+
+# 6. SSH to on-prem router and see BGP routes
+source ~/.rosa-demo-vpn/config.sh
+ssh -i ~/.ssh/demo-onprem-router-key.pem ec2-user@$ONPREM_PUBLIC_IP
+sudo vtysh -c 'show ip bgp'
+# You'll see: 192.168.100.5/32, 192.168.100.6/32 learned via BGP!
+
+# 7. Cleanup
+./hack/cleanup-demo-vpn.sh
+```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────┐
-│     Corporate Network           │
-│   (On-Prem BGP Routers)         │
-│         AS 65001                │
-└────────────┬────────────────────┘
-             │ BGP Peering
-             │ Advertises VM /32 routes
-             │
-┌────────────┼────────────────────────────────┐
-│            │    ROSA Cluster                │
-│  ┌─────────▼──────────────┐                 │
-│  │   FRR-K8s DaemonSet    │                 │
-│  │   (BGP Speaker)         │                 │
-│  └─────────▲──────────────┘                 │
-│            │ FRRConfiguration CRs            │
-│  ┌─────────┴──────────────┐                 │
-│  │  BGP-VM Controller     │                 │
-│  │  (Watches VMs)         │                 │
-│  └─────────▲──────────────┘                 │
-│            │ Kubernetes API                  │
-│  ┌─────────┴──────────────┐                 │
-│  │ OpenShift Virt VMs     │                 │
-│  │ - 10.10.10.5/24        │                 │
-│  └─────────┬──────────────┘                 │
-│            │                                 │
-│  ┌─────────▼──────────────┐                 │
-│  │  CUDN (L2 Network)     │                 │
-│  │  VLAN 100 Trunk        │                 │
-│  └────────────────────────┘                 │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────┐      ┌──────────────────────────┐
+│ ROSA Cluster                │      │ On-Premises / Other VPC  │
+│                             │      │                          │
+│  ┌──────────────┐           │      │  ┌────────────┐          │
+│  │ VMs on CUDN  │           │      │  │ BGP Router │          │
+│  │ 192.168.x.x  │           │      │  │ AS 65000   │          │
+│  └──────┬───────┘           │      │  └─────▲──────┘          │
+│         │                   │      │        │                 │
+│  ┌──────▼──────────┐        │      │        │                 │
+│  │ BGP Controller  │        │  BGP │        │                 │
+│  │ (watches VMs)   │        │ ◄────┼────────┘                 │
+│  └──────┬──────────┘        │      │                          │
+│         │                   │      │   Routes learned:        │
+│  ┌──────▼──────────┐        │      │   • 192.168.100.5/32     │
+│  │ FRR-K8s         │        │      │   • 192.168.100.6/32     │
+│  │ AS 65100        │        │      │                          │
+│  └─────────────────┘        │      │                          │
+└─────────────────────────────┘      └──────────────────────────┘
 ```
 
-**Components:**
-1. **CUDN Layer** - Isolated Layer 2 network with persistent IPAM
-2. **FRR-K8s** - BGP speaker running on each node
-3. **BGP-VM Controller** - Watches VMs and generates route advertisements
-4. **OpenShift Virt VMs** - VMs with secondary CUDN interfaces
 
-## Quick Start
+## Prerequisites
 
-### Prerequisites
+- ROSA cluster with metal nodes (bare metal required for virtualization)
+- OpenShift Virtualization installed
+- Site-to-Site VPN or network connectivity to BGP peer
 
-- ROSA cluster (4.14+) with metal worker nodes
-- OpenShift Virtualization Operator installed
-- Kubernetes NMState Operator installed
-- BGP-capable on-premises router with VLAN connectivity to AWS
+## Production Setup
 
-### Installation
+See [docs/PRODUCTION-SETUP.md](docs/PRODUCTION-SETUP.md) for:
+- Cluster requirements and discovery
+- Network configuration
+- BGP peering setup
+- Troubleshooting
+- Production best practices
 
-```bash
-# Clone repository
-git clone https://github.com/jkeam/rosa-virt-bgp-plugin.git
-cd rosa-virt-bgp-plugin
+## Project Structure
 
-# Install prerequisites
-./hack/install-prereqs.sh
-
-# Configure parameters (edit manifests to match your environment)
-# - VLAN ID and interface names
-# - IP subnet for VMs
-# - BGP ASN and neighbor addresses
-# - BGP password
-
-# Deploy
-make deploy
-
-# Deploy example VM
-kubectl apply -f manifests/05-examples/example-vm-fedora.yaml
-
-# Verify
-./hack/verify-bgp.sh
 ```
-
-See [Installation Guide](docs/installation.md) for detailed steps.
-
-## How It Works
-
-### Data Flow: VM Creation to BGP Advertisement
-
-1. **User creates VM** with CUDN secondary network interface
-2. **OVN-Kubernetes IPAM** assigns persistent IP (e.g., 10.10.10.5) via IPAMClaim
-3. **VM boots** with two NICs: pod network (primary) + CUDN (secondary)
-4. **Controller discovers** new VMI and extracts IP from status
-5. **Controller generates** FRRConfiguration CR with /32 host route
-6. **FRR-K8s merges** configs and updates BGP routing table
-7. **BGP advertises** route to on-prem router with next-hop as VLAN gateway
-8. **Corporate network** routes traffic directly to VM IP
-
-### VM Migration
-
-- VM migrates between nodes with same IP (IPAMClaim persistence)
-- BGP route remains advertised (next-hop unchanged)
-- No downtime - L2 adjacency makes migration transparent
-
-### VM Deletion
-
-- Controller detects deletion and updates FRRConfiguration
-- BGP withdraws /32 route
-- IP returned to IPAM pool
-
-## Configuration
-
-### CUDN Network
-
-```yaml
-apiVersion: k8s.ovn.org/v1
-kind: ClusterUserDefinedNetwork
-metadata:
-  name: vm-bgp-network
-spec:
-  network:
-    topology: Localnet           # Direct L2 connectivity
-    subnets: ["10.10.10.0/24"]
-    ipamLifecycle: Persistent    # IPs survive restarts/migrations
-```
-
-### BGP Configuration
-
-```yaml
-apiVersion: frrk8s.metallb.io/v1beta1
-kind: FRRConfiguration
-spec:
-  bgp:
-    routers:
-    - asn: 65000                 # Local AS
-      neighbors:
-      - asn: 65001               # On-prem router AS
-        address: 10.10.10.1      # On-prem router IP
-        bfdProfile: default      # Fast failover
-```
-
-### Example VM
-
-```yaml
-apiVersion: kubevirt.io/v1
-kind: VirtualMachine
-spec:
-  template:
-    spec:
-      domain:
-        devices:
-          interfaces:
-          - name: default
-            masquerade: {}       # Pod network
-          - name: bgp-network
-            bridge: {}           # CUDN secondary network
-      networks:
-      - name: default
-        pod: {}
-      - name: bgp-network
-        multus:
-          networkName: vm-bgp-net
-```
-
-## Documentation
-
-- [Architecture](docs/architecture.md) - Detailed system design and data flow
-- [Installation](docs/installation.md) - Step-by-step setup guide
-- [Configuration](docs/configuration.md) - Parameter reference and examples
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-
-## Verification
-
-```bash
-# Check BGP session status
-./hack/verify-bgp.sh
-
-# Debug VM networking
-./hack/debug-vm-networking.sh <vm-name>
-
-# Manual checks
-kubectl exec -n frr-k8s-system <frr-pod> -- vtysh -c "show bgp summary"
-kubectl get vmi -n vm-workloads
-kubectl get frrconfig -n frr-k8s-system
-```
-
-## Comparison to Alternatives
-
-### vs. Red Hat S2S VPN Solution
-
-- **BGP Plugin:** Native Layer 2, dynamic routing, no bandwidth cap, automatic IPAM
-- **S2S VPN:** IPsec tunnels, static routing, 1.25 Gbps limit, manual IP config
-
-### vs. AWS Load Balancers
-
-- **BGP Plugin:** Direct VM IP access, supports live migration, physical network bandwidth
-- **Load Balancers:** Proxy layer, IP changes break migration, LB bandwidth limits
-
-## Requirements
-
-- **ROSA:** 4.14+ with metal worker nodes
-- **OpenShift Virtualization:** Operator installed and configured
-- **NMState:** For VLAN trunk configuration
-- **Network:** VLAN connectivity between AWS and on-premises (Direct Connect or VPN)
-- **BGP Router:** On-premises router supporting BGP4
-
-## Development
-
-```bash
-# Build controller
-make build
-
-# Run tests
-make test
-
-# Build Docker image
-make docker-build
-
-# Deploy to cluster
-make deploy
+├── cmd/controller/          # Controller entry point
+├── pkg/controller/          # VM watcher and FRR config generator
+├── manifests/
+│   ├── 02-networking/       # ClusterUserDefinedNetwork
+│   ├── 03-frr/             # FRR base config and BGP peers
+│   ├── 04-controller/       # Controller deployment
+│   └── 05-examples/         # Example VMs
+├── hack/                    # Setup and demo scripts
+└── docs/                    # Documentation
 ```
 
 ## Contributing
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request with tests
+Issues and PRs welcome! This is a community project demonstrating BGP integration with OpenShift Virtualization.
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) for details.
-
-## Future Enhancements
-
-- [ ] Helm chart for easier deployment
-- [ ] IPv6 dual-stack support
-- [ ] BGP communities for policy routing
-- [ ] Route health checks (withdraw unhealthy VMs)
-- [ ] Multi-CUDN support (VMs with multiple secondary networks)
-- [ ] Web UI dashboard for BGP status visualization
-- [ ] Advanced filtering with label selectors
-
-## Support
-
-- **Issues:** Report bugs and feature requests via [GitHub Issues](https://github.com/jkeam/rosa-virt-bgp-plugin/issues)
-- **Documentation:** See [docs/](docs/) directory
-- **Questions:** Use GitHub Discussions
-
----
-
-**Built for production hybrid cloud environments** where on-premises and cloud VMs need seamless Layer 2 connectivity without VPN overhead or load balancer constraints.
+Apache 2.0

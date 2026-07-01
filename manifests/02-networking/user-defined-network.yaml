@@ -11,13 +11,14 @@ spec:
       bgp-enabled: "true"
   network:
     topology: Localnet
-    subnets:
-    - "10.10.10.0/24"
-    excludeSubnets:
-    - "10.10.10.1/32"      # Reserve for VLAN gateway
-    - "10.10.10.254/32"    # Reserve for broadcast
-    localnetConfig:
-      bridgeMappings:
-      - physicalNetworkName: vlan100
-        ovsBridge: br-vlan
-    ipamLifecycle: Persistent
+    localnet:
+      role: Secondary
+      subnets:
+      - "192.168.100.0/24"
+      excludeSubnets:
+      - "192.168.100.1/32"      # Reserve for VLAN gateway
+      - "192.168.100.254/32"    # Reserve for broadcast
+      physicalNetworkName: vlan100
+      ipam:
+        lifecycle: Persistent
+        mode: Enabled

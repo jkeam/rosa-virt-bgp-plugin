@@ -1,5 +1,5 @@
 ---
-# Controller configuration
+# Controller configuration for demo
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,11 +10,11 @@ data:
     # Network configuration
     networkName: "bgp-network"
     networkAttachmentDefinition: "vm-bgp-net"
-    cudnSubnet: "10.10.10.0/24"
+    cudnSubnet: "192.168.100.0/24"
 
     # FRR configuration
     frrNamespace: "frr-k8s-system"
-    bgpASN: 65000
+    bgpASN: 65100
 
     # Controller behavior
     reconcileInterval: "30s"

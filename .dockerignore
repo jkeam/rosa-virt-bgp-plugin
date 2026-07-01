@@ -7,8 +7,10 @@
 docs/
 
 # Build artifacts
-bin/
 *.out
+# Keep bin/controller (we need it for the Docker image)
+bin/*
+!bin/controller
 
 # Test files
 *_test.go

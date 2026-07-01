@@ -1,5 +1,5 @@
 ---
-# Base FRR configuration - router ID and global BGP settings
+# Base FRR configuration for demo
 apiVersion: frrk8s.metallb.io/v1beta1
 kind: FRRConfiguration
 metadata:
@@ -7,22 +7,15 @@ metadata:
   namespace: frr-k8s-system
 spec:
   bgp:
+    bfdProfiles:
+    - name: default
+      receiveInterval: 300
+      transmitInterval: 300
+      detectMultiplier: 3
+      echoMode: false
+      minimumTtl: 254
     routers:
-    - asn: 65000
-      routerID: 10.0.1.100    # Change to match your node IP or unique ID
-      bfd:
-        enabled: true
-        profile: default
----
-# BFD Profile for fast failure detection
-apiVersion: frrk8s.metallb.io/v1beta1
-kind: BFDProfile
-metadata:
-  name: default
-  namespace: frr-k8s-system
-spec:
-  receiveInterval: 300
-  transmitInterval: 300
-  detectMultiplier: 3
-  echoMode: false
-  minimumTTL: 254
+    - asn: 65100
+      # TODO: Set router ID to your cluster node IP
+      # Find with: oc get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}'
+      id: 10.0.0.1

@@ -80,7 +80,7 @@ func (g *FRRGenerator) GenerateConfig(ctx context.Context, namespace string) (*f
 			},
 		},
 		Spec: frrk8sv1beta1.FRRConfigurationSpec{
-			BGP: &frrk8sv1beta1.BGPConfig{
+			BGP: frrk8sv1beta1.BGPConfig{
 				Routers: []frrk8sv1beta1.Router{
 					{
 						ASN:      g.bgpASN,

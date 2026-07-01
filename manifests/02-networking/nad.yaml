@@ -9,10 +9,11 @@ spec:
   config: |
     {
       "cniVersion": "0.4.0",
-      "name": "vm-bgp-network",
+      "name": "vm-bgp-net",
       "type": "ovn-k8s-cni-overlay",
       "topology": "localnet",
       "netAttachDefName": "vm-workloads/vm-bgp-net",
+      "cudnName": "vm-bgp-network",
       "subnets": "10.10.10.0/24",
       "excludeSubnets": "10.10.10.1/32,10.10.10.254/32",
       "ipam": {
