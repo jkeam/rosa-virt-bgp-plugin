@@ -86,10 +86,10 @@ conn Tunnel2
     dpdtimeout=30s
 IPSEC_EOF
 
-# Substitute actual IPs
-sed -i "s/ONPREM_PUBLIC_IP/$ONPREM_PUBLIC_IP/g" /tmp/ipsec.conf
-sed -i "s/TUNNEL1_IP/$TUNNEL1_IP/g" /tmp/ipsec.conf
-sed -i "s/TUNNEL2_IP/$TUNNEL2_IP/g" /tmp/ipsec.conf
+# Substitute actual IPs (works on both macOS and Linux)
+perl -pi -e "s/ONPREM_PUBLIC_IP/$ONPREM_PUBLIC_IP/g" /tmp/ipsec.conf
+perl -pi -e "s/TUNNEL1_IP/$TUNNEL1_IP/g" /tmp/ipsec.conf
+perl -pi -e "s/TUNNEL2_IP/$TUNNEL2_IP/g" /tmp/ipsec.conf
 
 # Create IPsec secrets
 cat > /tmp/ipsec.secrets <<EOF
