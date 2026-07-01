@@ -1,0 +1,31 @@
+---
+# NodeNetworkConfigurationPolicy to configure VLAN trunking on ROSA worker nodes
+# This requires the Kubernetes NMState Operator to be installed
+# Adjust interface names and VLAN IDs based on your AWS setup
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  name: vlan-trunk-config
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  desiredState:
+    interfaces:
+    - name: br-vlan
+      type: ovs-bridge
+      state: up
+      bridge:
+        options:
+          stp: false
+        port:
+        - name: ens5.100
+          vlan:
+            base-iface: ens5
+            id: 100
+        - name: br-vlan
+    - name: ens5.100
+      type: vlan
+      state: up
+      vlan:
+        base-iface: ens5
+        id: 100

@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Build artifacts
+bin/
+*.out
+
+# Test files
+*_test.go
+test/
+
+# IDE
+.vscode/
+.idea/
+
+# Manifests and config
+manifests/
+hack/
+config/
+
+# Misc
+LICENSE
+Makefile

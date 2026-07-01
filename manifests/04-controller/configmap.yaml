@@ -1,0 +1,25 @@
+---
+# Controller configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgp-vm-controller-config
+  namespace: rosa-virt-bgp-system
+data:
+  config.yaml: |
+    # Network configuration
+    networkName: "bgp-network"
+    networkAttachmentDefinition: "vm-bgp-net"
+    cudnSubnet: "10.10.10.0/24"
+
+    # FRR configuration
+    frrNamespace: "frr-k8s-system"
+    bgpASN: 65000
+
+    # Controller behavior
+    reconcileInterval: "30s"
+    ipDiscoveryTimeout: "5m"
+
+    # Feature flags
+    enableMetrics: true
+    enableStatusUpdates: true

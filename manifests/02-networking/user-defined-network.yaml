@@ -1,0 +1,23 @@
+---
+# ClusterUserDefinedNetwork - creates an isolated L2 network for VMs
+# This uses localnet topology for direct connectivity to the physical VLAN
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: vm-bgp-network
+spec:
+  namespaceSelector:
+    matchLabels:
+      bgp-enabled: "true"
+  network:
+    topology: Localnet
+    subnets:
+    - "10.10.10.0/24"
+    excludeSubnets:
+    - "10.10.10.1/32"      # Reserve for VLAN gateway
+    - "10.10.10.254/32"    # Reserve for broadcast
+    localnetConfig:
+      bridgeMappings:
+      - physicalNetworkName: vlan100
+        ovsBridge: br-vlan
+    ipamLifecycle: Persistent

@@ -1,0 +1,69 @@
+---
+# Example RHEL VM with CUDN secondary network and specific IP
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: rhel-vm-01
+  namespace: vm-workloads
+  labels:
+    app: database
+    environment: demo
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: rhel-vm-01
+        app: database
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: containerdisk
+            disk:
+              bus: virtio
+          - name: cloudinitdisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+          - name: bgp-network
+            bridge: {}
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 4Gi
+            cpu: 4
+      networks:
+      - name: default
+        pod: {}
+      - name: bgp-network
+        multus:
+          networkName: vm-bgp-net
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: registry.redhat.io/rhel9/rhel-guest-image:latest
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userData: |
+            #cloud-config
+            packages:
+              - postgresql-server
+            runcmd:
+              - postgresql-setup --initdb
+              - systemctl enable postgresql
+              - systemctl start postgresql
+---
+# Optional: Pre-allocate specific IP for this VM
+apiVersion: k8s.ovn.org/v1alpha1
+kind: IPAMClaim
+metadata:
+  name: rhel-vm-01-ip
+  namespace: vm-workloads
+spec:
+  network: vm-bgp-network
+  ipv4: "10.10.10.10"

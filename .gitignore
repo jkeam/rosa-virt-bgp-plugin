@@ -30,3 +30,34 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+
+# Test coverage
+*.test
+*.prof
+coverage.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+kubeconfig
+
+# Temporary files
+tmp/
+*.tmp

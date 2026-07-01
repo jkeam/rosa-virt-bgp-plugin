@@ -1,0 +1,27 @@
+---
+# BGP neighbor configuration for peering with on-premises routers
+# Adjust ASN and neighbor addresses to match your environment
+apiVersion: frrk8s.metallb.io/v1beta1
+kind: FRRConfiguration
+metadata:
+  name: bgp-peers
+  namespace: frr-k8s-system
+spec:
+  bgp:
+    routers:
+    - asn: 65000
+      neighbors:
+      - asn: 65001
+        address: 10.10.10.1    # On-premises router IP
+        port: 179
+        ebgpMultiHop: 1
+        passwordSecret:
+          name: bgp-peer-secret
+          key: password
+        bfdProfile: default
+        toAdvertise:
+          allowed:
+            mode: filtered    # Only advertise routes from FRRConfigurations
+        toReceive:
+          allowed:
+            mode: filtered    # Only accept specific routes

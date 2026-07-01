@@ -1,0 +1,21 @@
+---
+# NetworkAttachmentDefinition - referenced by VMs for secondary network attachment
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: vm-bgp-net
+  namespace: vm-workloads
+spec:
+  config: |
+    {
+      "cniVersion": "0.4.0",
+      "name": "vm-bgp-network",
+      "type": "ovn-k8s-cni-overlay",
+      "topology": "localnet",
+      "netAttachDefName": "vm-workloads/vm-bgp-net",
+      "subnets": "10.10.10.0/24",
+      "excludeSubnets": "10.10.10.1/32,10.10.10.254/32",
+      "ipam": {
+        "type": "ovn-ipam"
+      }
+    }

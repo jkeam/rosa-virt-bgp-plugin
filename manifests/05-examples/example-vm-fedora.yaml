@@ -1,0 +1,52 @@
+---
+# Example Fedora VM with CUDN secondary network
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: fedora-vm-01
+  namespace: vm-workloads
+  labels:
+    app: web-server
+    environment: demo
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: fedora-vm-01
+        app: web-server
+    spec:
+      domain:
+        devices:
+          disks:
+          - name: containerdisk
+            disk:
+              bus: virtio
+          - name: cloudinitdisk
+            disk:
+              bus: virtio
+          interfaces:
+          - name: default
+            masquerade: {}
+          - name: bgp-network
+            bridge: {}
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 2Gi
+            cpu: 2
+      networks:
+      - name: default
+        pod: {}
+      - name: bgp-network
+        multus:
+          networkName: vm-bgp-net
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: containerdisk
+        containerDisk:
+          image: quay.io/containerdisks/fedora:latest
+      - name: cloudinitdisk
+        cloudInitNoCloud:
+          userDataBase64: I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKICAtIG5naW54CnJ1bmNtZDoKICAtIHN5c3RlbWN0bCBlbmFibGUgbmdpbngKICAtIHN5c3RlbWN0bCBzdGFydCBuZ2lueAo=

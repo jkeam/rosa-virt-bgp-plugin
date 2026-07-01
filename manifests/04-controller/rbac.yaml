@@ -1,0 +1,63 @@
+---
+# ServiceAccount for BGP-VM controller
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bgp-vm-controller
+  namespace: rosa-virt-bgp-system
+---
+# ClusterRole with permissions to watch VMs and manage FRRConfiguration
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: bgp-vm-controller
+rules:
+# Watch VirtualMachineInstances
+- apiGroups: ["kubevirt.io"]
+  resources: ["virtualmachineinstances"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: ["kubevirt.io"]
+  resources: ["virtualmachineinstances/status"]
+  verbs: ["get"]
+
+# Watch and manage IPAMClaims
+- apiGroups: ["k8s.ovn.org"]
+  resources: ["ipamclaims"]
+  verbs: ["get", "list", "watch"]
+
+# Create and manage FRRConfiguration
+- apiGroups: ["frrk8s.metallb.io"]
+  resources: ["frrconfigurations"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["frrk8s.metallb.io"]
+  resources: ["frrconfigurations/status"]
+  verbs: ["get"]
+
+# Read NetworkAttachmentDefinitions
+- apiGroups: ["k8s.cni.cncf.io"]
+  resources: ["network-attachment-definitions"]
+  verbs: ["get", "list", "watch"]
+
+# Leader election
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "create", "update", "patch"]
+
+# Events for debugging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: bgp-vm-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: bgp-vm-controller
+subjects:
+- kind: ServiceAccount
+  name: bgp-vm-controller
+  namespace: rosa-virt-bgp-system

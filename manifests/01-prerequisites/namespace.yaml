@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rosa-virt-bgp-system
+  labels:
+    app.kubernetes.io/name: rosa-virt-bgp
+    app.kubernetes.io/component: controller
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frr-k8s-system
+  labels:
+    app.kubernetes.io/name: frr-k8s
+    app.kubernetes.io/component: bgp-speaker
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vm-workloads
+  labels:
+    bgp-enabled: "true"
+    app.kubernetes.io/name: vm-workloads
