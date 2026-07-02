@@ -61,9 +61,22 @@ func (e *IPExtractor) ExtractIPs(ctx context.Context, vmi *kubevirtv1.VirtualMac
 func (e *IPExtractor) extractFromVMIStatus(vmi *kubevirtv1.VirtualMachineInstance) []string {
 	var ips []string
 
+	// Find which interface name corresponds to our multus network
+	var targetInterfaceName string
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil && network.Multus.NetworkName == e.networkName {
+			targetInterfaceName = network.Name
+			break
+		}
+	}
+
+	if targetInterfaceName == "" {
+		return ips
+	}
+
+	// Extract IPs from the matching interface
 	for _, iface := range vmi.Status.Interfaces {
-		// Match interface by network name
-		if iface.Name == e.networkName {
+		if iface.Name == targetInterfaceName {
 			for _, ip := range iface.IPs {
 				if e.isValidIP(ip) {
 					ips = append(ips, ip)

@@ -11,7 +11,7 @@ func HasCUDNInterface(vmi *kubevirtv1.VirtualMachineInstance, networkName string
 	}
 
 	for _, network := range vmi.Spec.Networks {
-		if network.Name == networkName && network.Multus != nil {
+		if network.Multus != nil && network.Multus.NetworkName == networkName {
 			return true
 		}
 	}
