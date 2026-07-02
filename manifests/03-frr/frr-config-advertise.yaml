@@ -1,0 +1,13 @@
+---
+# FRR configuration to advertise secondary network prefixes via BGP
+apiVersion: frrk8s.metallb.io/v1beta1
+kind: FRRConfiguration
+metadata:
+  name: advertise-secondary-networks
+  namespace: frr-k8s-system
+spec:
+  bgp:
+    routers:
+    - asn: 65100
+      prefixes:
+      - 192.168.100.0/24

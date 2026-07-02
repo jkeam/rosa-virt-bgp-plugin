@@ -9,12 +9,17 @@ echo "========================================="
 echo ""
 
 # Load configuration
-if [ ! -f ~/.rosa-demo-vpn/config.sh ]; then
+if [ ! -f "$HOME/.rosa-virt-bgp/config.sh" ]; then
     echo "❌ Error: No demo VPN found to cleanup"
-    exit 1
+    echo "Looking for legacy config..."
+    if [ -f ~/.rosa-demo-vpn/config.sh ]; then
+        source ~/.rosa-demo-vpn/config.sh
+    else
+        exit 1
+    fi
+else
+    source "$HOME/.rosa-virt-bgp/config.sh"
 fi
-
-source ~/.rosa-demo-vpn/config.sh
 
 echo "This will delete:"
 echo "  • VPN Connection: $VPN_CONN_ID"

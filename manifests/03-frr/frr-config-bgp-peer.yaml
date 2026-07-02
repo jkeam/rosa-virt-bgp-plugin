@@ -1,5 +1,6 @@
 ---
-# BGP neighbor configuration - peers with laptop router
+# BGP peer configuration - peering with on-prem router via VPN
+# VPN tunnel inside IPs for BGP peering
 apiVersion: frrk8s.metallb.io/v1beta1
 kind: FRRConfiguration
 metadata:
@@ -9,18 +10,19 @@ spec:
   bgp:
     routers:
     - asn: 65100
+      prefixes:
+      - 192.168.100.0/24
       neighbors:
+      # On-prem router - peering via VPN
       - asn: 65000
-        address: 192.168.100.1
+        address: 172.16.1.141  # On-prem router private IP
         port: 179
         ebgpMultiHop: true
-        passwordSecret:
-          name: bgp-peer-secret
-          namespace: frr-k8s-system
-        bfdProfile: default
-        toAdvertise:
-          allowed:
-            mode: filtered
         toReceive:
           allowed:
             mode: all
+        toAdvertise:
+          allowed:
+            mode: filtered
+            prefixes:
+            - 192.168.100.0/24

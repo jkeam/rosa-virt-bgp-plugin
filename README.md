@@ -44,33 +44,39 @@ When you create VMs with secondary networks (ClusterUserDefinedNetworks), this c
 
 ## Try a Demo
 
-Fully automated two-VPC demo showing real BGP route advertisement:
+Fully automated demo with Site-to-Site VPN and BGP - **zero manual configuration required!**
+
+Just be authenticated to your ROSA cluster, then:
 
 ```bash
-# 1. Install prerequisites
-./hack/install-prereqs.sh
+# 1. Setup VPN infrastructure (auto-detects everything from your cluster)
+./hack/setup-demo-vpn.sh
 
-# 2. Deploy controller
-make deploy
-
-# 3. Create demo infrastructure (second VPC as "on-prem")
-AUTO_CONFIRM=true ./hack/setup-demo-vpn.sh
-
-# 4. Configure the on-prem router
+# 2. Configure on-prem router
 ./hack/configure-onprem-router.sh
 
-# 5. Deploy test VMs
+# 3. Deploy BGP configuration to ROSA
+./hack/deploy-bgp-config.sh
+
+# 4. Deploy test VMs
 oc apply -f manifests/05-examples/demo-vms.yaml
 
-# 6. SSH to on-prem router and see BGP routes
-source ~/.rosa-demo-vpn/config.sh
-ssh -i ~/.ssh/demo-onprem-router-key.pem ec2-user@$ONPREM_PUBLIC_IP
-sudo vtysh -c 'show ip bgp'
-# You'll see: 192.168.100.5/32, 192.168.100.6/32 learned via BGP!
+# 5. Verify BGP (shows routes being advertised)
+./hack/verify-bgp.sh
 
-# 7. Cleanup
+# 6. Cleanup when done
 ./hack/cleanup-demo-vpn.sh
 ```
+
+**What gets auto-detected:**
+- ✅ AWS Region and ROSA VPC from your cluster
+- ✅ Non-overlapping network CIDRs
+- ✅ BGP ASNs and VPN credentials
+- ✅ Optimal EC2 instance configuration
+
+**Cost:** ~$0.06/hour (~$1.50 for full day)
+
+See [`hack/README.md`](hack/README.md) for details.
 
 ## Architecture
 
